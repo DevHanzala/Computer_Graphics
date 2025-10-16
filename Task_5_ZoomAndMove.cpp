@@ -11,56 +11,74 @@ float panX = 0.0f, panY = 0.0f;
 
 void loadData(const char* filename) {
     std::ifstream file(filename);
-    int n;
-    while (file >> n) {
-        std::vector<Point> poly;
-        for (int i = 0; i < n; i++) {
-            Point p; file >> p.x >> p.y;
-            poly.push_back(p);
+    if (!file) {
+        std::cout << "Error: File '" << filename << "' not found or cannot be opened!\n";
+        exit(1);
+    }
+    std::vector<Point> poly;
+    int x, y;
+    while (file >> x >> y) {
+        if (x == -1 && y == -1) {
+            if (!poly.empty()) {
+                shapes.push_back(poly);
+                poly.clear();
+            }
         }
+        else {
+            poly.push_back({ x, y });
+        }
+    }
+    if (!poly.empty()) {
         shapes.push_back(poly);
     }
+    file.close();
+    std::cout << "Loaded " << shapes.size() << " shapes from " << filename << ".\n";
 }
 
 void drawDino() {
+    const float max_x = 635.0f; // Approx max x from dino.dat
+    const float max_y = 439.0f; // Max y from dino.dat
     for (auto& poly : shapes) {
         glBegin(GL_LINE_LOOP);
-        for (auto& p : poly) glVertex2f(p.x, p.y);
+        for (auto& p : poly) {
+            float norm_x = (p.x / max_x) * 640.0f * zoom; // Apply zoom to normalized x
+            float norm_y = ((max_y - p.y) / max_y) * 480.0f * zoom; // Apply zoom to normalized y
+            glVertex2f(norm_x + panX, norm_y + panY); // Apply pan
+        }
         glEnd();
     }
 }
 
 void display() {
     glClear(GL_COLOR_BUFFER_BIT);
-    glPushMatrix();
-    glTranslatef(panX, panY, 0);
-    glScalef(zoom, zoom, 1);
-    glColor3f(0, 0, 0);
+    glColor3f(0, 0, 0); // Black lines
     drawDino();
-    glPopMatrix();
     glFlush();
 }
 
 void keyboard(unsigned char key, int, int) {
     if (key == '+') zoom *= 1.1f;
     if (key == '-') zoom /= 1.1f;
-    if (key == 'q') exit(0);
+    if (key == 'q' || key == 'Q') exit(0); // Added 'Q' for consistency
+    if (zoom < 0.1f) zoom = 0.1f; // Prevent zoom out too far
     glutPostRedisplay();
 }
 
 void specialKeys(int key, int, int) {
+    const float panStep = 10.0f;
     switch (key) {
-    case GLUT_KEY_LEFT:  panX -= 10; break;
-    case GLUT_KEY_RIGHT: panX += 10; break;
-    case GLUT_KEY_UP:    panY += 10; break;
-    case GLUT_KEY_DOWN:  panY -= 10; break;
+    case GLUT_KEY_LEFT:  panX -= panStep; break;
+    case GLUT_KEY_RIGHT: panX += panStep; break;
+    case GLUT_KEY_UP:    panY += panStep; break;
+    case GLUT_KEY_DOWN:  panY -= panStep; break;
     }
     glutPostRedisplay();
 }
 
 void initGL() {
-    glClearColor(1, 1, 1, 1);
-    gluOrtho2D(0, 640, 0, 480);
+    glClearColor(1, 1, 1, 1); // White background
+    glViewport(0, 0, 640, 480); // Match window size
+    gluOrtho2D(0, 640, 0, 480); // Set coordinate system
 }
 
 int main(int argc, char** argv) {
